@@ -75,6 +75,19 @@ export default function Login() {
             <p>👤 Operator: <code className="bg-blue-100 px-2 py-1 rounded">operator / operator123</code></p>
           </div>
         </div>
+
+        {/* Branding */}
+        <div className="mt-6 flex justify-center">
+          <a
+            href="https://shakadigital.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity"
+          >
+            <img src="/shaka-logo.svg" alt="Shaka Digital" className="w-5 h-5" />
+            <span className="text-xs text-gray-500">shakadigital.com</span>
+          </a>
+        </div>
       </div>
     </div>
   );

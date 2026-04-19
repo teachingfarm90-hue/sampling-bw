@@ -141,21 +141,6 @@ export default function Layout() {
       <main className="container mx-auto px-4 py-6 pb-20">
         <Outlet />
       </main>
-
-      {/* Shaka Digital Branding */}
-      <div className="fixed bottom-4 left-4 z-50">
-        <a
-          href="https://shakadigital.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 bg-white/90 backdrop-blur-sm rounded-full px-3 py-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
-        >
-          <img src="/shaka-logo.svg" alt="Shaka Digital" className="w-6 h-6 group-hover:rotate-12 transition-transform duration-300" />
-          <span className="text-xs font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
-            shakadigital.com
-          </span>
-        </a>
-      </div>
     </div>
   );
 }

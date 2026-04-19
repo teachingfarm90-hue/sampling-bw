@@ -33,33 +33,38 @@ export default function MobileInput() {
   };
 
   const handleAddBerat = async () => {
-    if (!berat || berat.length > 4) {
-      alert('Masukkan berat maksimal 4 digit');
+    const val = parseInt(berat);
+    if (!berat || isNaN(val) || berat.length > 4) {
+      alert('Masukkan berat yang valid (maksimal 4 digit)');
       return;
     }
-    await addTimbang(sessionId, parseInt(berat));
+
+    // Deteksi potensi dobel input
+    const duplicate = data?.find(d => d.berat === val);
+    if (duplicate) {
+      const ok = confirm(`⚠️ Berat ${val} gr sudah pernah diinput (No. ${duplicate.id_ayam}).\nTetap tambahkan?`);
+      if (!ok) return;
+    }
+
+    await addTimbang(sessionId, val);
     setBerat('');
   };
 
-  const handleReview = () => {
-    setShowReview(true);
+  // Handle Enter key
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') handleAddBerat();
   };
 
   if (!sessionId) {
     return (
       <div className="max-w-md mx-auto bg-white p-6 rounded-lg shadow">
         <h2 className="text-2xl font-bold mb-4">Setup Sesi Timbang</h2>
-        
+
         {!kandangs || kandangs.length === 0 ? (
           <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-4">
             <p className="text-yellow-800 font-semibold mb-2">⚠️ Belum ada kandang terdaftar</p>
-            <p className="text-sm text-yellow-700 mb-3">
-              Silakan daftarkan kandang terlebih dahulu di menu Kandang.
-            </p>
-            <a 
-              href="/kandang"
-              className="inline-block bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700"
-            >
+            <p className="text-sm text-yellow-700 mb-3">Silakan daftarkan kandang terlebih dahulu.</p>
+            <a href="/kandang" className="inline-block bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700">
               Ke Halaman Kandang
             </a>
           </div>
@@ -67,16 +72,14 @@ export default function MobileInput() {
           <div className="space-y-4">
             <div>
               <label className="block mb-2 font-semibold">Kandang</label>
-              <select 
+              <select
                 className="w-full p-2 border rounded"
                 value={kandang}
                 onChange={(e) => setKandang(e.target.value)}
               >
                 <option value="">Pilih Kandang</option>
                 {kandangs.map(k => (
-                  <option key={k.id} value={k.kode}>
-                    {k.kode} - {k.nama}
-                  </option>
+                  <option key={k.id} value={k.kode}>{k.kode} - {k.nama}</option>
                 ))}
               </select>
             </div>
@@ -93,7 +96,7 @@ export default function MobileInput() {
 
             <div>
               <label className="block mb-2 font-semibold">Umur (Minggu)</label>
-              <input 
+              <input
                 type="number"
                 className="w-full p-2 border rounded"
                 value={umurMg}
@@ -101,7 +104,7 @@ export default function MobileInput() {
                 placeholder="Contoh: 6"
               />
             </div>
-            <button 
+            <button
               onClick={handleStartSession}
               className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700"
             >
@@ -117,65 +120,171 @@ export default function MobileInput() {
     return <ReviewScreen sessionId={sessionId} onBack={() => setShowReview(false)} />;
   }
 
+  // Deteksi warning
+  const duplicates = data ? data.filter((item, _, arr) =>
+    arr.filter(d => d.berat === item.berat).length > 1
+  ).map(d => d.berat) : [];
+  const uniqueDuplicates = [...new Set(duplicates)];
+
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white p-6 rounded-lg shadow mb-4">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h2 className="text-xl font-bold">Kandang {kandang} - Minggu {umurMg}</h2>
-            <p className="text-gray-600">Jumlah Data: {data?.length || 0} Ekor</p>
-            {kandangInfo && (
-              <p className="text-sm text-gray-500">PJ: {kandangInfo.penanggung_jawab}</p>
+      {/* Header & Input */}
+      <div className="bg-white p-4 rounded-lg shadow mb-3">
+        <div className="mb-3">
+          <h2 className="text-lg font-bold">Kandang {kandang} - Minggu {umurMg}</h2>
+          <div className="flex items-center gap-3">
+            <span className="text-gray-600 text-sm">Jumlah Data: <strong>{data?.length || 0} Ekor</strong></span>
+            {kandangInfo?.kapasitas && (
+              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                data?.length > kandangInfo.kapasitas
+                  ? 'bg-red-100 text-red-700'
+                  : 'bg-gray-100 text-gray-600'
+              }`}>
+                Kapasitas: {kandangInfo.kapasitas}
+              </span>
             )}
           </div>
+          {kandangInfo && <p className="text-xs text-gray-400">PJ: {kandangInfo.penanggung_jawab}</p>}
         </div>
 
+        {/* Warning dobel */}
+        {uniqueDuplicates.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded p-2 mb-3 text-sm text-orange-700">
+            ⚠️ Berat dobel terdeteksi: <strong>{uniqueDuplicates.join(', ')} gr</strong> — periksa sebelum simpan.
+          </div>
+        )}
+
+        {/* Warning melebihi kapasitas */}
+        {kandangInfo?.kapasitas && data?.length > kandangInfo.kapasitas && (
+          <div className="bg-red-50 border border-red-200 rounded p-2 mb-3 text-sm text-red-700">
+            ⚠️ Jumlah data ({data.length}) melebihi kapasitas kandang ({kandangInfo.kapasitas} ekor).
+          </div>
+        )}
+
         <div className="flex gap-2">
-          <input 
+          <input
             type="number"
-            className="flex-1 p-3 border-2 rounded-lg text-lg"
+            className="flex-1 p-3 border-2 rounded-lg text-lg focus:border-green-500 focus:outline-none"
             value={berat}
             onChange={(e) => setBerat(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Berat (gram)"
-            maxLength={4}
+            autoFocus
           />
-          <button 
+          <button
             onClick={handleAddBerat}
-            className="w-24 bg-green-600 text-white rounded-lg font-bold text-2xl hover:bg-green-700"
+            className="w-20 bg-green-600 text-white rounded-lg font-bold text-2xl hover:bg-green-700 active:bg-green-800"
           >
             +
           </button>
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow mb-4 max-h-96 overflow-y-auto">
-        <h3 className="font-bold mb-3">Data Timbang Terbaru</h3>
+      {/* Tabel Data */}
+      <div className="bg-white rounded-lg shadow mb-3 max-h-80 overflow-y-auto">
+        <div className="sticky top-0 bg-gray-100 px-4 py-2 flex justify-between items-center border-b">
+          <span className="font-bold text-sm">Data Timbang</span>
+          <span className="text-xs text-gray-500">{data?.length || 0} entri</span>
+        </div>
         <table className="w-full">
-          <thead className="bg-gray-100">
+          <thead className="bg-gray-50 text-xs text-gray-500">
             <tr>
               <th className="p-2 text-left">No</th>
               <th className="p-2 text-right">Berat (gr)</th>
+              <th className="p-2 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody>
-            {data?.map((item) => (
-              <tr key={item.id} className="border-b">
-                <td className="p-2">{item.id_ayam}</td>
-                <td className="p-2 text-right font-semibold">{item.berat}</td>
-              </tr>
-            ))}
+            {data?.map((item) => {
+              const isDuplicate = uniqueDuplicates.includes(item.berat);
+              return (
+                <tr key={item.id} className={`border-b ${isDuplicate ? 'bg-orange-50' : ''}`}>
+                  <td className="p-2 text-sm text-gray-500">{item.id_ayam}</td>
+                  <td className="p-2 text-right font-semibold">
+                    {item.berat}
+                    {isDuplicate && <span className="ml-1 text-xs text-orange-500">●</span>}
+                  </td>
+                  <td className="p-2">
+                    <div className="flex gap-1 justify-center">
+                      <EditButton item={item} />
+                      <DeleteButton item={item} />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      <button 
-        onClick={handleReview}
+      <button
+        onClick={() => setShowReview(true)}
         disabled={!data || data.length === 0}
         className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400"
       >
         Review & Simpan
       </button>
     </div>
+  );
+}
+
+// Tombol Edit inline
+function EditButton({ item }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(item.berat.toString());
+
+  const handleSave = async () => {
+    const newBerat = parseInt(val);
+    if (isNaN(newBerat) || val.length > 4) {
+      alert('Berat tidak valid');
+      return;
+    }
+    await db.timbang.update(item.id, { berat: newBerat });
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="flex gap-1 items-center">
+        <input
+          type="number"
+          className="w-16 p-1 border rounded text-sm text-center"
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          autoFocus
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
+        />
+        <button onClick={handleSave} className="text-green-600 font-bold text-sm px-1">✓</button>
+        <button onClick={() => setEditing(false)} className="text-gray-400 text-sm px-1">✕</button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      className="text-blue-500 hover:text-blue-700 text-xs px-2 py-1 rounded hover:bg-blue-50"
+    >
+      Edit
+    </button>
+  );
+}
+
+// Tombol Hapus inline
+function DeleteButton({ item }) {
+  const handleDelete = async () => {
+    if (confirm(`Hapus data berat ${item.berat} gr (No. ${item.id_ayam})?`)) {
+      await db.timbang.delete(item.id);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleDelete}
+      className="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50"
+    >
+      Hapus
+    </button>
   );
 }
 
@@ -186,44 +295,44 @@ function ReviewScreen({ sessionId, onBack }) {
     calculateAnalysis(sessionId).then(setAnalysis);
   }, [sessionId]);
 
-  if (!analysis) return <div>Loading...</div>;
+  if (!analysis) return <div className="text-center py-8">Menghitung...</div>;
 
   return (
     <div className="max-w-2xl mx-auto">
       <div className="bg-white p-6 rounded-lg shadow">
         <h2 className="text-2xl font-bold mb-6">Hasil Analisa</h2>
-        
+
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="bg-blue-50 p-4 rounded">
-            <p className="text-gray-600">Total Ekor</p>
+            <p className="text-gray-600 text-sm">Total Ekor</p>
             <p className="text-3xl font-bold">{analysis.totalEkor}</p>
           </div>
           <div className="bg-green-50 p-4 rounded">
-            <p className="text-gray-600">Rata-rata Berat</p>
+            <p className="text-gray-600 text-sm">Rata-rata Berat</p>
             <p className="text-3xl font-bold">{analysis.mean} gr</p>
           </div>
           <div className="bg-yellow-50 p-4 rounded">
-            <p className="text-gray-600">Keseragaman</p>
+            <p className="text-gray-600 text-sm">Keseragaman</p>
             <p className="text-3xl font-bold">{analysis.uniformity}%</p>
           </div>
           <div className="bg-purple-50 p-4 rounded">
-            <p className="text-gray-600">CV</p>
+            <p className="text-gray-600 text-sm">CV</p>
             <p className="text-3xl font-bold">{analysis.cv}%</p>
           </div>
         </div>
 
         <div className="flex gap-4">
-          <button 
+          <button
             onClick={onBack}
             className="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700"
           >
-            Kembali
+            ← Kembali Edit
           </button>
-          <button 
+          <button
             onClick={() => alert('Data tersimpan!')}
             className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700"
           >
-            Simpan
+            Simpan ✓
           </button>
         </div>
       </div>
