@@ -1,0 +1,81 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { login } from '../lib/auth';
+
+export default function Login() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    
+    try {
+      const user = await login(username, password);
+      alert(`Selamat datang, ${user.nama}!`);
+      navigate('/');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center px-4">
+      <div className="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-green-600 mb-2">🐔 Smart Farm</h1>
+          <p className="text-gray-600">Sistem Timbang Ayam Layer 4.0</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block mb-2 font-semibold text-gray-700">Username</label>
+            <input
+              type="text"
+              className="w-full p-3 border-2 rounded-lg focus:border-green-500 focus:outline-none"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Masukkan username"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block mb-2 font-semibold text-gray-700">Password</label>
+            <input
+              type="password"
+              className="w-full p-3 border-2 rounded-lg focus:border-green-500 focus:outline-none"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Masukkan password"
+              required
+            />
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition"
+          >
+            Login
+          </button>
+        </form>
+
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+          <p className="text-sm font-semibold text-blue-800 mb-2">Demo Akun:</p>
+          <div className="text-sm text-blue-700 space-y-1">
+            <p>👤 Admin: <code className="bg-blue-100 px-2 py-1 rounded">admin / admin123</code></p>
+            <p>👤 Operator: <code className="bg-blue-100 px-2 py-1 rounded">operator / operator123</code></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
