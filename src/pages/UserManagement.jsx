@@ -312,10 +312,8 @@ export default function UserManagement() {
       <div className="bg-yellow-50 p-4 rounded-lg mt-6">
         <p className="text-sm font-semibold text-yellow-800">⚠️ Perhatian:</p>
         <ul className="text-sm text-yellow-700 mt-2 space-y-1 ml-4 list-disc">
-          <li>Password disimpan dalam bentuk plain text (untuk demo). Gunakan hashing di produksi.</li>
           <li>Anda tidak dapat menghapus akun Anda sendiri.</li>
           <li>Username tidak dapat diubah setelah dibuat.</li>
-          <li>Akun Superadmin tidak dapat diedit atau dihapus oleh siapapun.</li>
         </ul>
       </div>
     </div>
