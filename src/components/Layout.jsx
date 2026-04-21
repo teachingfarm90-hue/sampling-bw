@@ -41,6 +41,7 @@ export default function Layout() {
   const navLinks = [
     { to: '/kandang', label: 'Kandang' },
     { to: '/input', label: 'Input' },
+    { to: '/sebaran', label: '📊 Sebaran' },
     // Dashboard, Users, Audit hanya untuk desktop
     ...(!isMobile ? [
       { to: '/dashboard', label: 'Dashboard' },

@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import KandangManagement from './pages/KandangManagement';
 import AdminDashboard from './pages/AdminDashboard';
 import UserManagement from './pages/UserManagement';
+import SebaranBerat from './pages/SebaranBerat';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }) {
@@ -32,6 +33,7 @@ function App() {
         }>
           <Route index element={<Navigate to={isMobile ? "/input" : "/dashboard"} replace />} />
           <Route path="input" element={<MobileInput />} />
+          <Route path="sebaran" element={<SebaranBerat />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="kandang" element={<KandangManagement />} />
           <Route path="users" element={<UserManagement />} />
