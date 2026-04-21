@@ -41,7 +41,7 @@ function CustomTooltip({ active, payload }) {
 export default function SebaranBerat() {
   const [selectedKandang, setSelectedKandang] = useState('');
   const [selectedSession, setSelectedSession] = useState('');
-  const [binSize, setBinSize] = useState(50);
+  const [binSize, setBinSize] = useState(10);
   const [analysis, setAnalysis] = useState(null);
   const [distribution, setDistribution] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -169,7 +169,7 @@ export default function SebaranBerat() {
               Interval Grafik: <span className="text-green-600">{binSize} gr</span>
             </label>
             <div className="flex gap-2">
-              {[25, 50, 100, 150].map(b => (
+              {[5, 10, 15, 20].map(b => (
                 <button
                   key={b}
                   onClick={() => setBinSize(b)}
