@@ -1,5 +1,5 @@
-import { supabase } from './supabase';
 import { db } from './db';
+import { supabase } from './supabase';
 import { isDemoAccount } from './auth';
 
 let isSyncing = false;
@@ -238,6 +238,17 @@ async function pullKandangs() {
         kapasitas: remote.kapasitas,
         created_at: remote.created_at,
         created_by: remote.created_by,
+        updated_at: remote.updated_at,
+        updated_by: remote.updated_by,
+        synced: true
+      });
+    } else {
+      // Update data lokal dari remote
+      await db.kandangs.update(existing.id, {
+        nama: remote.nama,
+        penanggung_jawab: remote.penanggung_jawab,
+        kontak: remote.kontak,
+        kapasitas: remote.kapasitas,
         updated_at: remote.updated_at,
         updated_by: remote.updated_by,
         synced: true

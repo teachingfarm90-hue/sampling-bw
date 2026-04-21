@@ -83,6 +83,13 @@ export async function login(username, password) {
       isSuperAdmin: true
     };
     setCurrentUser(userData);
+
+    // Pull data terbaru dari Supabase setelah login superadmin
+    if (navigator.onLine) {
+      const { pullFromSupabase } = await import('./sync');
+      pullFromSupabase();
+    }
+
     return userData;
   }
 
@@ -105,6 +112,13 @@ export async function login(username, password) {
   };
 
   setCurrentUser(userData);
+
+  // Pull data terbaru dari Supabase setelah login
+  if (navigator.onLine && !isDemo) {
+    const { pullFromSupabase } = await import('./sync');
+    pullFromSupabase();
+  }
+
   return userData;
 }
 
