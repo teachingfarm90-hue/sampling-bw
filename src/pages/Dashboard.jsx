@@ -93,7 +93,7 @@ export default function Dashboard() {
           const mean = rataRata;
           const lowerBound = mean * 0.9;
           const upperBound = mean * 1.1;
-          const uniformCount = data.filter(w => w >= lowerBound && w <= upperBound).length;
+          const uniformCount = data.filter(w => w.berat >= lowerBound && w.berat <= upperBound).length;
           const uniformity = (uniformCount / data.length) * 100;
 
           trendData[session.umur_mg] = {
