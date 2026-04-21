@@ -10,6 +10,7 @@ export default function MobileInput() {
   const [berat, setBerat] = useState('');
   const [showReview, setShowReview] = useState(false);
   const [kandangInfo, setKandangInfo] = useState(null);
+  const [dupeWarning, setDupeWarning] = useState(null); // { val, prevNo }
   // State khusus untuk data demo (tidak pakai IndexedDB)
   const [demoData, setDemoData] = useState([]);
 
@@ -61,11 +62,12 @@ export default function MobileInput() {
       return;
     }
 
-    // Deteksi potensi dobel input
-    const duplicate = data?.find(d => d.berat === val);
-    if (duplicate) {
-      const ok = confirm(`⚠️ Berat ${val} gr sudah pernah diinput (No. ${duplicate.id_ayam}).\nTetap tambahkan?`);
-      if (!ok) return;
+    // Cek hanya 1 data terakhir (entry sebelumnya)
+    const lastEntry = data && data.length > 0 ? data[0] : null; // data sudah di-reverse, [0] = terbaru
+    if (lastEntry && lastEntry.berat === val) {
+      setDupeWarning({ val, prevNo: lastEntry.id_ayam });
+    } else {
+      setDupeWarning(null);
     }
 
     await addTimbang(sessionId, val);
@@ -187,9 +189,11 @@ export default function MobileInput() {
         <div className="flex gap-2">
           <input
             type="number"
-            className="flex-1 p-3 border-2 rounded-lg text-lg focus:border-green-500 focus:outline-none"
+            className={`flex-1 p-3 border-2 rounded-lg text-lg focus:outline-none ${
+              dupeWarning ? 'border-orange-400 focus:border-orange-500' : 'focus:border-green-500'
+            }`}
             value={berat}
-            onChange={(e) => setBerat(e.target.value)}
+            onChange={(e) => { setBerat(e.target.value); setDupeWarning(null); }}
             onKeyDown={handleKeyDown}
             placeholder="Berat (gram)"
             autoFocus
@@ -201,6 +205,22 @@ export default function MobileInput() {
             +
           </button>
         </div>
+
+        {/* Notifikasi dobel — muncul setelah input terakhir sama dengan sebelumnya */}
+        {dupeWarning && (
+          <div className="mt-2 flex items-center gap-2 bg-orange-50 border border-orange-300 rounded-lg px-3 py-2 text-sm text-orange-700">
+            <span className="text-lg">⚠️</span>
+            <span>
+              Sama dengan data sebelumnya (No. {dupeWarning.prevNo} — {dupeWarning.val} gr). Periksa kembali.
+            </span>
+            <button
+              onClick={() => setDupeWarning(null)}
+              className="ml-auto text-orange-400 hover:text-orange-600 font-bold text-base leading-none"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tabel Data */}
