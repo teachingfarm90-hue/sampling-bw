@@ -88,8 +88,99 @@ export function exportToExcel(data, metadata, filename) {
 }
 
 export function exportToPDF(data, metadata, filename) {
-  // Buat HTML untuk PDF
-  const html = `
+  const isTrend = !metadata.umurMg;
+
+  const html = isTrend ? `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h1 { text-align: center; color: #10b981; margin-bottom: 5px; }
+        h2 { text-align: center; color: #666; font-size: 14px; margin-top: 0; }
+        .section { margin: 20px 0; }
+        .section-title { background: #10b981; color: white; padding: 8px; font-weight: bold; }
+        .info-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        .info-table td { padding: 5px; border-bottom: 1px solid #ddd; }
+        .info-table td:first-child { font-weight: bold; width: 200px; }
+        .data-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px; }
+        .data-table th { background: #10b981; color: white; padding: 8px; text-align: left; }
+        .data-table td { padding: 6px; border-bottom: 1px solid #ddd; }
+        .data-table tr:nth-child(even) { background: #f9f9f9; }
+        .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 10px 0; }
+        .stat-card { border: 2px solid #10b981; padding: 10px; border-radius: 5px; }
+        .stat-label { font-size: 12px; color: #666; }
+        .stat-value { font-size: 20px; font-weight: bold; color: #10b981; }
+      </style>
+    </head>
+    <body>
+      <h1>LAPORAN TREN PERTUMBUHAN AYAM</h1>
+      <h2>Smart Farm Layer 4.0</h2>
+
+      <div class="section">
+        <div class="section-title">INFORMASI KANDANG</div>
+        <table class="info-table">
+          <tr><td>Kode Kandang</td><td>${metadata.kandangKode}</td></tr>
+          <tr><td>Nama Kandang</td><td>${metadata.kandangNama}</td></tr>
+          <tr><td>Penanggung Jawab</td><td>${metadata.penanggungJawab}</td></tr>
+          <tr><td>Kontak</td><td>${metadata.kontak}</td></tr>
+          ${metadata.kapasitas ? `<tr><td>Kapasitas</td><td>${metadata.kapasitas} ekor</td></tr>` : ''}
+        </table>
+      </div>
+
+      <div class="section">
+        <div class="section-title">RINGKASAN</div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Minggu</div>
+            <div class="stat-value">${metadata.totalMinggu}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Ekor</div>
+            <div class="stat-value">${metadata.totalEkor}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Rata-rata Keseluruhan</div>
+            <div class="stat-value">${metadata.rataRataKeseluruhan} gr</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">TREN PERTUMBUHAN PER MINGGU</div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Minggu</th>
+              <th>Rata-rata Berat (gr)</th>
+              <th>Total Ekor</th>
+              <th>Keseragaman (%)</th>
+              <th>Tanggal Timbang</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(row => `
+              <tr>
+                <td>Minggu ${row.minggu}</td>
+                <td>${row.rataRata} gr</td>
+                <td>${row.totalEkor} ekor</td>
+                <td>${row.uniformity}%</td>
+                <td>${row.tanggal || '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="footer">
+        Diekspor pada: ${new Date().toLocaleString('id-ID')}<br>
+        Smart Farm Layer 4.0 - Sistem Timbang Ayam
+      </div>
+    </body>
+    </html>
+  ` : `
     <!DOCTYPE html>
     <html>
     <head>
@@ -117,7 +208,7 @@ export function exportToPDF(data, metadata, filename) {
     <body>
       <h1>LAPORAN DATA TIMBANG AYAM</h1>
       <h2>Smart Farm Layer 4.0</h2>
-      
+
       <div class="section">
         <div class="section-title">INFORMASI KANDANG</div>
         <table class="info-table">
@@ -128,7 +219,7 @@ export function exportToPDF(data, metadata, filename) {
           ${metadata.kapasitas ? `<tr><td>Kapasitas</td><td>${metadata.kapasitas} ekor</td></tr>` : ''}
         </table>
       </div>
-      
+
       <div class="section">
         <div class="section-title">INFORMASI TIMBANG</div>
         <table class="info-table">
@@ -137,7 +228,7 @@ export function exportToPDF(data, metadata, filename) {
           <tr><td>Total Ekor Ditimbang</td><td>${metadata.totalEkor} ekor</td></tr>
         </table>
       </div>
-      
+
       <div class="section">
         <div class="section-title">HASIL ANALISA</div>
         <div class="stats-grid">
@@ -159,7 +250,7 @@ export function exportToPDF(data, metadata, filename) {
           </div>
         </div>
       </div>
-      
+
       <div class="section">
         <div class="section-title">DATA TIMBANG PER EKOR</div>
         <table class="data-table">
@@ -183,7 +274,7 @@ export function exportToPDF(data, metadata, filename) {
           </tbody>
         </table>
       </div>
-      
+
       <div class="footer">
         Diekspor pada: ${new Date().toLocaleString('id-ID')}<br>
         Smart Farm Layer 4.0 - Sistem Timbang Ayam
@@ -191,8 +282,7 @@ export function exportToPDF(data, metadata, filename) {
     </body>
     </html>
   `;
-  
-  // Buka di window baru untuk print to PDF
+
   const printWindow = window.open('', '_blank');
   printWindow.document.write(html);
   printWindow.document.close();
