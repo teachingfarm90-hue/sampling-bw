@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { db } from './db';
+import { isDemoAccount } from './auth';
 
 let isSyncing = false;
 
@@ -7,6 +8,12 @@ let isSyncing = false;
 // PUSH: Local → Supabase
 // ============================================
 export async function syncToSupabase() {
+  // Jangan sync jika user adalah akun demo
+  if (isDemoAccount()) {
+    console.log('[Sync] Akun demo — sync dilewati');
+    return;
+  }
+
   if (isSyncing || !navigator.onLine) return;
   isSyncing = true;
 

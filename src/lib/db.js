@@ -1,5 +1,5 @@
 import Dexie from 'dexie';
-import { getCurrentUser, logAudit } from './auth';
+import { getCurrentUser, logAudit, isDemoAccount } from './auth';
 
 export const db = new Dexie('SmartFarmDB');
 
@@ -58,6 +58,22 @@ db.version(4).stores({
 // ============================================
 export async function createSession(kandang, umur_mg) {
   const user = getCurrentUser();
+  const isDemo = isDemoAccount();
+
+  // Akun demo: simpan hanya ke sessionStorage (tidak ke IndexedDB)
+  if (isDemo) {
+    const demoId = `demo_${Date.now()}`;
+    const demoSession = {
+      id: demoId,
+      kandang,
+      umur_mg,
+      created_at: new Date().toISOString(),
+      isDemo: true
+    };
+    sessionStorage.setItem(`demo_session_${demoId}`, JSON.stringify(demoSession));
+    return demoId;
+  }
+
   const id = await db.sessions.add({
     kandang,
     umur_mg,
@@ -74,6 +90,23 @@ export async function createSession(kandang, umur_mg) {
 }
 
 export async function addTimbang(session_id, berat) {
+  const isDemo = isDemoAccount();
+
+  // Akun demo: simpan ke sessionStorage saja
+  if (isDemo) {
+    const key = `demo_timbang_${session_id}`;
+    const existing = JSON.parse(sessionStorage.getItem(key) || '[]');
+    existing.push({
+      id: existing.length + 1,
+      session_id,
+      id_ayam: existing.length + 1,
+      berat,
+      created_at: new Date().toISOString()
+    });
+    sessionStorage.setItem(key, JSON.stringify(existing));
+    return;
+  }
+
   const count = await db.timbang.where('session_id').equals(session_id).count();
   await db.timbang.add({
     session_id,
@@ -84,11 +117,27 @@ export async function addTimbang(session_id, berat) {
 }
 
 export async function getSessionData(session_id) {
+  const isDemo = isDemoAccount();
+
+  // Akun demo: baca dari sessionStorage
+  if (isDemo) {
+    const key = `demo_timbang_${session_id}`;
+    return JSON.parse(sessionStorage.getItem(key) || '[]').reverse();
+  }
+
   return await db.timbang.where('session_id').equals(session_id).reverse().toArray();
 }
 
 export async function calculateAnalysis(session_id) {
-  const data = await db.timbang.where('session_id').equals(session_id).toArray();
+  const isDemo = isDemoAccount();
+
+  let data;
+  if (isDemo) {
+    const key = `demo_timbang_${session_id}`;
+    data = JSON.parse(sessionStorage.getItem(key) || '[]');
+  } else {
+    data = await db.timbang.where('session_id').equals(session_id).toArray();
+  }
   if (data.length === 0) return null;
 
   const weights = data.map(d => d.berat);
@@ -115,6 +164,10 @@ export async function calculateAnalysis(session_id) {
 // KANDANG
 // ============================================
 export async function registerKandang(data) {
+  if (isDemoAccount()) {
+    throw new Error('Akun demo tidak dapat menyimpan data kandang.');
+  }
+
   const exists = await db.kandangs.where('kode').equals(data.kode).first();
   if (exists) throw new Error('Kode kandang sudah terdaftar');
 
@@ -140,6 +193,10 @@ export async function getKandangByKode(kode) {
 }
 
 export async function updateKandang(id, data) {
+  if (isDemoAccount()) {
+    throw new Error('Akun demo tidak dapat mengubah data kandang.');
+  }
+
   const user = getCurrentUser();
   const oldData = await db.kandangs.get(id);
 
@@ -158,10 +215,53 @@ export async function deleteKandang(id) {
   if (!user || user.role !== 'admin') {
     throw new Error('Hanya admin yang dapat menghapus data');
   }
+  if (isDemoAccount()) {
+    throw new Error('Akun demo tidak dapat menghapus data kandang.');
+  }
 
   const oldData = await db.kandangs.get(id);
   await db.kandangs.delete(id);
   await logAudit('delete', 'kandang', id, oldData, null);
+}
+
+export async function deleteTimbang(id) {
+  if (isDemoAccount()) {
+    // Hapus dari sessionStorage — cari di semua key demo_timbang_*
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith('demo_timbang_')) {
+        const items = JSON.parse(sessionStorage.getItem(key) || '[]');
+        const filtered = items.filter(item => item.id !== id);
+        if (filtered.length !== items.length) {
+          // Re-number id_ayam
+          filtered.forEach((item, idx) => { item.id_ayam = idx + 1; });
+          sessionStorage.setItem(key, JSON.stringify(filtered));
+          return;
+        }
+      }
+    }
+    return;
+  }
+  await db.timbang.delete(id);
+}
+
+export async function updateTimbang(id, data) {
+  if (isDemoAccount()) {
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith('demo_timbang_')) {
+        const items = JSON.parse(sessionStorage.getItem(key) || '[]');
+        const idx = items.findIndex(item => item.id === id);
+        if (idx !== -1) {
+          items[idx] = { ...items[idx], ...data };
+          sessionStorage.setItem(key, JSON.stringify(items));
+          return;
+        }
+      }
+    }
+    return;
+  }
+  await db.timbang.update(id, data);
 }
 
 // ============================================

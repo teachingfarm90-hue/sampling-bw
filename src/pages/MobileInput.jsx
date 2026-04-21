@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { db, createSession, addTimbang, getSessionData, calculateAnalysis, getAllKandangs } from '../lib/db';
+import { createSession, addTimbang, getSessionData, calculateAnalysis, getAllKandangs, deleteTimbang, updateTimbang } from '../lib/db';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { isDemoAccount } from '../lib/auth';
 
 export default function MobileInput() {
   const [kandang, setKandang] = useState('');
@@ -9,12 +10,26 @@ export default function MobileInput() {
   const [berat, setBerat] = useState('');
   const [showReview, setShowReview] = useState(false);
   const [kandangInfo, setKandangInfo] = useState(null);
+  // State khusus untuk data demo (tidak pakai IndexedDB)
+  const [demoData, setDemoData] = useState([]);
 
+  const isDemo = isDemoAccount();
   const kandangs = useLiveQuery(() => getAllKandangs(), []);
-  const data = useLiveQuery(
-    () => sessionId ? getSessionData(sessionId) : [],
-    [sessionId]
+  const dbData = useLiveQuery(
+    () => (!isDemo && sessionId) ? getSessionData(sessionId) : [],
+    [sessionId, isDemo]
   );
+
+  // Untuk demo, refresh data dari sessionStorage
+  const refreshDemoData = () => {
+    if (isDemo && sessionId) {
+      const key = `demo_timbang_${sessionId}`;
+      const items = JSON.parse(sessionStorage.getItem(key) || '[]');
+      setDemoData([...items].reverse());
+    }
+  };
+
+  const data = isDemo ? demoData : dbData;
 
   useEffect(() => {
     if (kandang && kandangs) {
@@ -22,6 +37,13 @@ export default function MobileInput() {
       setKandangInfo(info);
     }
   }, [kandang, kandangs]);
+
+  // Refresh demo data saat sessionId berubah
+  useEffect(() => {
+    if (isDemo && sessionId) {
+      refreshDemoData();
+    }
+  }, [sessionId, isDemo]);
 
   const handleStartSession = async () => {
     if (!kandang || !umurMg) {
@@ -48,6 +70,7 @@ export default function MobileInput() {
 
     await addTimbang(sessionId, val);
     setBerat('');
+    if (isDemo) refreshDemoData();
   };
 
   // Handle Enter key
@@ -206,8 +229,8 @@ export default function MobileInput() {
                   </td>
                   <td className="p-2">
                     <div className="flex gap-1 justify-center">
-                      <EditButton item={item} />
-                      <DeleteButton item={item} />
+                      <EditButton item={item} onRefresh={isDemo ? refreshDemoData : undefined} />
+                      <DeleteButton item={item} onRefresh={isDemo ? refreshDemoData : undefined} />
                     </div>
                   </td>
                 </tr>
@@ -229,7 +252,7 @@ export default function MobileInput() {
 }
 
 // Tombol Edit inline
-function EditButton({ item }) {
+function EditButton({ item, onRefresh }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(item.berat.toString());
 
@@ -239,8 +262,9 @@ function EditButton({ item }) {
       alert('Berat tidak valid');
       return;
     }
-    await db.timbang.update(item.id, { berat: newBerat });
+    await updateTimbang(item.id, { berat: newBerat });
     setEditing(false);
+    if (onRefresh) onRefresh();
   };
 
   if (editing) {
@@ -271,10 +295,11 @@ function EditButton({ item }) {
 }
 
 // Tombol Hapus inline
-function DeleteButton({ item }) {
+function DeleteButton({ item, onRefresh }) {
   const handleDelete = async () => {
     if (confirm(`Hapus data berat ${item.berat} gr (No. ${item.id_ayam})?`)) {
-      await db.timbang.delete(item.id);
+      await deleteTimbang(item.id);
+      if (onRefresh) onRefresh();
     }
   };
 
@@ -290,6 +315,7 @@ function DeleteButton({ item }) {
 
 function ReviewScreen({ sessionId, onBack }) {
   const [analysis, setAnalysis] = useState(null);
+  const isDemo = isDemoAccount();
 
   useEffect(() => {
     calculateAnalysis(sessionId).then(setAnalysis);
@@ -301,6 +327,16 @@ function ReviewScreen({ sessionId, onBack }) {
     <div className="max-w-2xl mx-auto">
       <div className="bg-white p-6 rounded-lg shadow">
         <h2 className="text-2xl font-bold mb-6">Hasil Analisa</h2>
+
+        {isDemo && (
+          <div className="bg-orange-50 border border-orange-300 rounded-lg p-4 mb-6">
+            <p className="text-orange-800 font-semibold text-sm">🔒 Mode Demo</p>
+            <p className="text-orange-700 text-sm mt-1">
+              Data ini hanya tersimpan sementara di browser dan <strong>tidak akan disimpan ke database</strong>. 
+              Data akan hilang saat sesi browser ditutup.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="bg-blue-50 p-4 rounded">
@@ -328,12 +364,22 @@ function ReviewScreen({ sessionId, onBack }) {
           >
             ← Kembali Edit
           </button>
-          <button
-            onClick={() => alert('Data tersimpan!')}
-            className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700"
-          >
-            Simpan ✓
-          </button>
+          {isDemo ? (
+            <button
+              disabled
+              className="flex-1 bg-gray-300 text-gray-500 py-3 rounded-lg font-semibold cursor-not-allowed"
+              title="Akun demo tidak dapat menyimpan ke database"
+            >
+              🔒 Simpan (Demo)
+            </button>
+          ) : (
+            <button
+              onClick={() => alert('Data tersimpan!')}
+              className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700"
+            >
+              Simpan ✓
+            </button>
+          )}
         </div>
       </div>
     </div>

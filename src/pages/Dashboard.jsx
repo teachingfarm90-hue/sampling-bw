@@ -14,7 +14,7 @@ export default function Dashboard() {
   const [compareTrend, setCompareTrend] = useState([]);
   const [overviewStats, setOverviewStats] = useState(null);
 
-  const kandangList = [...new Set(sessions?.map(s => s.kandang) || [])];
+  const kandangList = kandangs?.map(k => k.kode) || [];
 
   // Calculate overview statistics
   useEffect(() => {
