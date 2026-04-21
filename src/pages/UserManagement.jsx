@@ -63,6 +63,7 @@ export default function UserManagement() {
   const handleEdit = (user) => {
     if (!canManage) { alert('Akun demo tidak dapat mengedit user.'); return; }
     if (user.username === SUPERADMIN_USERNAME) { alert('Akun Superadmin tidak dapat diedit.'); return; }
+    if (DEMO_USERNAMES.includes(user.username)) { alert('Akun demo tidak dapat diedit.'); return; }
     setFormData({ username: user.username, password: '', nama: user.nama, role: user.role });
     setEditingId(user.id);
     setShowForm(true);
@@ -71,6 +72,7 @@ export default function UserManagement() {
   const handleDelete = async (id, username) => {
     if (!canManage) { alert('Akun demo tidak dapat menghapus user.'); return; }
     if (username === SUPERADMIN_USERNAME) { alert('Akun Superadmin tidak dapat dihapus.'); return; }
+    if (DEMO_USERNAMES.includes(username)) { alert('Akun demo tidak dapat dihapus.'); return; }
     if (currentUser.username === username) { alert('Anda tidak dapat menghapus akun Anda sendiri!'); return; }
     if (confirm(`Yakin ingin menghapus user "${username}"?`)) {
       try {
@@ -217,6 +219,7 @@ export default function UserManagement() {
               <tbody>
                 {users.map((user) => {
                   const isSuperAdminRow = user.username === SUPERADMIN_USERNAME;
+                  const isDemoRow = DEMO_USERNAMES.includes(user.username);
                   const isCurrentUser = currentUser.username === user.username;
 
                   return (
@@ -227,16 +230,21 @@ export default function UserManagement() {
                           {isCurrentUser && (
                             <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Anda</span>
                           )}
+                          {isDemoRow && (
+                            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">Demo</span>
+                          )}
                         </div>
                       </td>
                       <td className="p-3">{user.nama}</td>
                       <td className="p-3">
                         <span className={`px-3 py-1 rounded text-sm font-semibold ${
                           isSuperAdminRow ? 'bg-purple-100 text-purple-700'
+                          : isDemoRow ? 'bg-orange-100 text-orange-700'
                           : user.role === 'admin' ? 'bg-green-100 text-green-700'
                           : 'bg-blue-100 text-blue-700'
                         }`}>
                           {isSuperAdminRow ? '🔐 Superadmin'
+                            : isDemoRow ? `🎭 Demo (${user.role === 'admin' ? 'Admin' : 'Operator'})`
                             : user.role === 'admin' ? '👑 Admin'
                             : '👤 Operator'}
                         </span>
@@ -246,8 +254,10 @@ export default function UserManagement() {
                       </td>
                       <td className="p-3">
                         <div className="flex gap-2 justify-center">
-                          {isSuperAdminRow ? (
-                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">🔐 Dilindungi</span>
+                          {isSuperAdminRow || isDemoRow ? (
+                            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                              {isSuperAdminRow ? '🔐 Dilindungi' : '🎭 Akun Demo'}
+                            </span>
                           ) : isDemo ? (
                             <span className="text-xs text-gray-400 italic">Hanya lihat</span>
                           ) : canManage ? (
