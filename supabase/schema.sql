@@ -109,3 +109,11 @@ CREATE INDEX IF NOT EXISTS idx_sessions_kandang    ON sessions(kandang);
 CREATE INDEX IF NOT EXISTS idx_timbang_session_id  ON timbang(session_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_ts       ON audit_logs(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity   ON audit_logs(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_users_owner         ON users(owner);
+
+-- ============================================
+-- MIGRATION (untuk database yang sudah ada)
+-- Aman dijalankan ulang karena pakai IF NOT EXISTS / IF NOT EXISTS
+-- ============================================
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS owner VARCHAR(50) DEFAULT NULL;
