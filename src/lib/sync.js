@@ -31,7 +31,6 @@ export async function syncToSupabase() {
 }
 
 async function pushUsers() {
-  // filter synced === false (bukan 1/0, tapi boolean)
   const all = await db.users.toArray();
   const unsynced = all.filter(u => !u.synced);
 
@@ -41,6 +40,7 @@ async function pushUsers() {
       password: user.password,
       nama: user.nama,
       role: user.role,
+      owner: user.owner || null,
       created_at: user.created_at
     }, { onConflict: 'username' });
 
@@ -208,15 +208,16 @@ async function pullUsers() {
         password: remote.password,
         nama: remote.nama,
         role: remote.role,
+        owner: remote.owner || null,
         created_at: remote.created_at,
         synced: true
       });
     } else {
-      // Update jika ada perubahan dari remote
       await db.users.update(existing.id, {
         password: remote.password,
         nama: remote.nama,
         role: remote.role,
+        owner: remote.owner || null,
         synced: true
       });
     }

@@ -1,5 +1,5 @@
 import Dexie from 'dexie';
-import { getCurrentUser, logAudit, isDemoAccount } from './auth';
+import { getCurrentUser, logAudit, isDemoAccount, getDataScope, isSuperAdmin } from './auth';
 
 export const db = new Dexie('SmartFarmDB');
 
@@ -47,6 +47,15 @@ db.version(3).stores({
 // Version 4: Add synced flag and remote_id for cloud sync
 db.version(4).stores({
   users: '++id, username, nama, role, created_at, synced',
+  kandangs: '++id, kode, nama, penanggung_jawab, kontak, kapasitas, created_at, created_by, updated_by, synced',
+  sessions: '++id, kandang, umur_mg, created_at, synced, created_by, remote_id',
+  timbang: '++id, session_id, id_ayam, berat, created_at',
+  audit_logs: '++id, user_id, username, action, entity_type, entity_id, timestamp, synced'
+});
+
+// Version 5: Add owner field to users for multi-admin isolation
+db.version(5).stores({
+  users: '++id, username, nama, role, owner, created_at, synced',
   kandangs: '++id, kode, nama, penanggung_jawab, kontak, kapasitas, created_at, created_by, updated_by, synced',
   sessions: '++id, kandang, umur_mg, created_at, synced, created_by, remote_id',
   timbang: '++id, session_id, id_ayam, berat, created_at',
@@ -114,6 +123,21 @@ export async function addTimbang(session_id, berat) {
     berat,
     created_at: new Date().toISOString()
   });
+}
+
+// Ambil semua sessions sesuai scope user
+export async function getScopedSessions() {
+  const scope = getDataScope();
+  if (scope === null) {
+    return await db.sessions.toArray();
+  }
+  // Filter: session yang created_by admin dalam scope,
+  // atau session di kandang yang dimiliki admin dalam scope
+  const scopedKandangs = await getAllKandangs();
+  const scopedKodes = new Set(scopedKandangs.map(k => k.kode));
+  return await db.sessions.filter(s =>
+    s.created_by === scope || scopedKodes.has(s.kandang)
+  ).toArray();
 }
 
 export async function getSessionData(session_id) {
@@ -185,7 +209,14 @@ export async function registerKandang(data) {
 }
 
 export async function getAllKandangs() {
-  return await db.kandangs.toArray();
+  const scope = getDataScope();
+  if (scope === null) {
+    // superadmin atau demo: lihat semua
+    return await db.kandangs.toArray();
+  }
+  // admin: lihat kandang yang dibuat oleh dirinya
+  // operator: lihat kandang yang dibuat oleh admin-nya (owner)
+  return await db.kandangs.filter(k => k.created_by === scope).toArray();
 }
 
 export async function getKandangByKode(kode) {
@@ -284,15 +315,28 @@ export async function getAuditLogs(filters = {}) {
 // USERS
 // ============================================
 export async function getAllUsers() {
-  return await db.users.toArray();
+  const scope = getDataScope();
+  if (scope === null) {
+    // superadmin: lihat semua user
+    return await db.users.toArray();
+  }
+  // admin: lihat dirinya sendiri + user yang dia buat (owner === username admin)
+  return await db.users.filter(u =>
+    u.username === scope || u.owner === scope
+  ).toArray();
 }
 
 export async function createUser(data) {
   const exists = await db.users.where('username').equals(data.username).first();
   if (exists) throw new Error('Username sudah terdaftar');
 
+  const currentUser = getCurrentUser();
+  // owner = admin yang membuat user ini (superadmin tidak punya owner)
+  const owner = isSuperAdmin() ? null : currentUser?.username || null;
+
   const id = await db.users.add({
     ...data,
+    owner,
     created_at: new Date().toISOString(),
     synced: false
   });

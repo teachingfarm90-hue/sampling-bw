@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { getAllUsers, createUser, updateUser, deleteUser } from '../lib/db';
-import { isAdmin, getCurrentUser, isDemoAccount, canManageUsers } from '../lib/auth';
+import { isAdmin, getCurrentUser, isDemoAccount, canManageUsers, isSuperAdmin } from '../lib/auth';
 import { useNavigate } from 'react-router-dom';
 
 const DEMO_USERNAMES = ['admin', 'operator'];
@@ -12,6 +12,7 @@ export default function UserManagement() {
   const currentUser = getCurrentUser();
   const isDemo = isDemoAccount();
   const canManage = canManageUsers();
+  const superAdmin = isSuperAdmin();
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -181,9 +182,13 @@ export default function UserManagement() {
                   required
                 >
                   <option value="operator">Operator</option>
-                  <option value="admin">Admin</option>
+                  {superAdmin && <option value="admin">Admin</option>}
                 </select>
-                <p className="text-xs text-gray-500 mt-1">Admin: Akses penuh | Operator: Tidak bisa hapus data</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {superAdmin
+                    ? 'Admin: Kelola user & kandang sendiri | Operator: Input data'
+                    : 'Anda hanya dapat menambahkan Operator'}
+                </p>
               </div>
             </div>
 
@@ -212,6 +217,7 @@ export default function UserManagement() {
                   <th className="p-3 text-left">Username</th>
                   <th className="p-3 text-left">Nama Lengkap</th>
                   <th className="p-3 text-left">Role</th>
+                  {superAdmin && <th className="p-3 text-left">Milik Admin</th>}
                   <th className="p-3 text-left">Dibuat</th>
                   <th className="p-3 text-center">Aksi</th>
                 </tr>
@@ -249,6 +255,17 @@ export default function UserManagement() {
                             : '👤 Operator'}
                         </span>
                       </td>
+                      {superAdmin && (
+                        <td className="p-3 text-sm text-gray-600">
+                          {isSuperAdminRow || isDemoRow ? (
+                            <span className="text-xs text-gray-400">—</span>
+                          ) : user.owner ? (
+                            <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">{user.owner}</span>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">tidak ada</span>
+                          )}
+                        </td>
+                      )}
                       <td className="p-3 text-sm text-gray-600">
                         {new Date(user.created_at).toLocaleDateString('id-ID')}
                       </td>

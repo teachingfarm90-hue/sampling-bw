@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
   password VARCHAR(255) NOT NULL,
   nama VARCHAR(100) NOT NULL,
   role VARCHAR(20) NOT NULL DEFAULT 'operator' CHECK (role IN ('admin', 'operator')),
+  owner VARCHAR(50) DEFAULT NULL,  -- username admin yang membuat user ini (NULL = superadmin/independent)
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

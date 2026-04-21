@@ -55,6 +55,19 @@ export function canDelete() {
   return isAdmin() && !isDemoAccount();
 }
 
+// Dapatkan "scope" user saat ini untuk filter data
+// superadmin → null (lihat semua)
+// admin resmi → username admin itu sendiri
+// operator → username admin yang membuatnya (owner)
+export function getDataScope() {
+  const user = getCurrentUser();
+  if (!user || isDemoAccount()) return null;
+  if (isSuperAdmin()) return null; // lihat semua
+  if (user.role === 'admin') return user.username;
+  // operator: scope = owner mereka
+  return user.owner || null;
+}
+
 export async function login(username, password) {
   // Cek superadmin dulu (tidak perlu ada di DB lokal)
   if (username === SUPERADMIN.username) {
@@ -108,7 +121,8 @@ export async function login(username, password) {
     nama: user.nama,
     role: user.role,
     isDemo,
-    isSuperAdmin: false
+    isSuperAdmin: false,
+    owner: user.owner || null  // admin yang membuat user ini
   };
 
   setCurrentUser(userData);

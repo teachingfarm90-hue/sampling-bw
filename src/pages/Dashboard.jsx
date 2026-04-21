@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, calculateAnalysis, getAllKandangs } from '../lib/db';
+import { db, calculateAnalysis, getAllKandangs, getScopedSessions } from '../lib/db';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { exportToExcel, exportToPDF, getDistribution } from '../lib/utils';
 
@@ -8,7 +8,7 @@ export default function Dashboard() {
   const [selectedKandang, setSelectedKandang] = useState('');
   const [compareKandang, setCompareKandang] = useState('');
 
-  const sessions = useLiveQuery(() => db.sessions.toArray(), []);
+  const sessions = useLiveQuery(() => getScopedSessions(), []);
   const kandangs = useLiveQuery(() => getAllKandangs(), []);
   const [kandangTrend, setKandangTrend] = useState([]);
   const [compareTrend, setCompareTrend] = useState([]);

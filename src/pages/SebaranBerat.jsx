@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, getAllKandangs } from '../lib/db';
+import { db, getAllKandangs, getScopedSessions } from '../lib/db';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, Cell
@@ -49,8 +49,8 @@ export default function SebaranBerat() {
   const kandangs = useLiveQuery(() => getAllKandangs(), []);
   const sessions = useLiveQuery(
     () => selectedKandang
-      ? db.sessions.where('kandang').equals(selectedKandang).reverse().toArray()
-      : [],
+      ? getScopedSessions().then(all => all.filter(s => s.kandang === selectedKandang).reverse())
+      : Promise.resolve([]),
     [selectedKandang]
   );
 
