@@ -86,27 +86,40 @@ export default function Dashboard() {
       for (const session of kandangSessions) {
         const data = await db.timbang.where('session_id').equals(session.id).toArray();
         if (data.length > 0) {
-          const totalBerat = data.reduce((sum, d) => sum + d.berat, 0);
-          const rataRata = Math.round(totalBerat / data.length);
-          
-          // Calculate uniformity
-          const mean = rataRata;
-          const lowerBound = mean * 0.9;
-          const upperBound = mean * 1.1;
-          const uniformCount = data.filter(w => w.berat >= lowerBound && w.berat <= upperBound).length;
-          const uniformity = (uniformCount / data.length) * 100;
-
-          trendData[session.umur_mg] = {
-            minggu: session.umur_mg,
-            rataRata,
-            totalEkor: data.length,
-            uniformity: uniformity.toFixed(1),
-            tanggal: new Date(session.created_at).toLocaleDateString('id-ID')
-          };
+          const key = session.umur_mg;
+          if (!trendData[key]) {
+            trendData[key] = {
+              minggu: session.umur_mg,
+              allWeights: [],
+              tanggal: new Date(session.created_at).toLocaleDateString('id-ID')
+            };
+          }
+          // Gabungkan semua berat dari sesi dengan umur yang sama
+          trendData[key].allWeights.push(...data.map(d => d.berat));
+          // Pakai tanggal terbaru
+          const sessionDate = new Date(session.created_at);
+          const existingDate = new Date(trendData[key].tanggal.split('/').reverse().join('-'));
+          if (sessionDate > existingDate) {
+            trendData[key].tanggal = sessionDate.toLocaleDateString('id-ID');
+          }
         }
       }
 
-      const trendArray = Object.values(trendData).sort((a, b) => a.minggu - b.minggu);
+      const trendArray = Object.values(trendData).map(d => {
+        const weights = d.allWeights;
+        const mean = weights.reduce((a, b) => a + b, 0) / weights.length;
+        const lowerBound = mean * 0.9;
+        const upperBound = mean * 1.1;
+        const uniformCount = weights.filter(w => w >= lowerBound && w <= upperBound).length;
+        const uniformity = (uniformCount / weights.length) * 100;
+        return {
+          minggu: d.minggu,
+          rataRata: Math.round(mean),
+          totalEkor: weights.length,
+          uniformity: uniformity.toFixed(1),
+          tanggal: d.tanggal
+        };
+      }).sort((a, b) => a.minggu - b.minggu);
       setKandangTrend(trendArray);
     };
 

@@ -152,11 +152,13 @@ export default function SebaranBerat() {
                 onChange={e => setSelectedSession(e.target.value)}
               >
                 <option value="">— Pilih Sesi —</option>
-                {sessions.map(s => (
-                  <option key={s.id} value={s.id}>
-                    Minggu {s.umur_mg} — {new Date(s.created_at).toLocaleDateString('id-ID')}
-                  </option>
-                ))}
+                {sessions.map(s => {
+                  const tgl = new Date(s.created_at);
+                  const label = `Minggu ${s.umur_mg} — ${tgl.toLocaleDateString('id-ID')} ${tgl.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+                  return (
+                    <option key={s.id} value={s.id}>{label}</option>
+                  );
+                })}
               </select>
             )}
           </div>
@@ -205,8 +207,12 @@ export default function SebaranBerat() {
                 📍 {selectedKandang} — Minggu {selectedSessionObj.umur_mg}
               </span>
               <span className="text-green-700">
-                🗓 {new Date(selectedSessionObj.created_at).toLocaleDateString('id-ID')}
+                🗓 {new Date(selectedSessionObj.created_at).toLocaleDateString('id-ID')}{' '}
+                {new Date(selectedSessionObj.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
               </span>
+              {selectedSessionObj.created_by && (
+                <span className="text-green-600 text-xs">👤 {selectedSessionObj.created_by}</span>
+              )}
             </div>
           )}
 
