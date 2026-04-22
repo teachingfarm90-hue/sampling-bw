@@ -233,6 +233,20 @@ async function pullUsers() {
         synced: true
       });
     }
+
+    // Jika ini adalah user yang sedang login, refresh currentUser di localStorage
+    const { getCurrentUser, setCurrentUser } = await import('./auth');
+    const currentUser = getCurrentUser();
+    if (currentUser && currentUser.username === remote.username) {
+      const updated = {
+        ...currentUser,
+        nama: remote.nama,
+        role: remote.role,
+        owner: remote.owner || null
+      };
+      setCurrentUser(updated);
+      console.log('[Sync] currentUser refreshed:', updated.username, 'owner:', updated.owner);
+    }
   }
 }
 

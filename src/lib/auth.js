@@ -58,13 +58,14 @@ export function canDelete() {
 // Dapatkan "scope" user saat ini untuk filter data
 // superadmin → null (lihat semua)
 // admin resmi → username admin itu sendiri
-// operator → username admin yang membuatnya (owner)
+// operator dengan owner → username owner-nya
+// operator tanpa owner → null (lihat semua, fallback aman)
 export function getDataScope() {
   const user = getCurrentUser();
   if (!user || isDemoAccount()) return null;
   if (isSuperAdmin()) return null; // lihat semua
   if (user.role === 'admin') return user.username;
-  // operator: scope = owner mereka
+  // operator: scope = owner mereka, null jika belum di-set (lihat semua)
   return user.owner || null;
 }
 
