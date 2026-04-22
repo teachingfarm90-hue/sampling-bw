@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout, isAdmin } from '../lib/auth';
-import { useEffect, useState } from 'react';
-import { syncToSupabase } from '../lib/sync';
+import { useEffect, useState, useCallback } from 'react';
+import { syncToSupabase, pullFromSupabase } from '../lib/sync';
 
 export default function Layout() {
   const location = useLocation();
@@ -9,12 +9,44 @@ export default function Layout() {
   const user = getCurrentUser();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState(null); // 'ok' | 'error' | null
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+
+  // Deteksi update Service Worker
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker?.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              setUpdateAvailable(true);
+            }
+          });
+        });
+      });
+
+      // Cek update setiap 5 menit
+      const interval = setInterval(() => {
+        navigator.serviceWorker.ready.then(reg => reg.update());
+      }, 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, []);
+
+  const handleUpdate = () => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.waiting?.postMessage({ type: 'SKIP_WAITING' });
+      });
+    }
+    window.location.reload();
+  };
 
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      setSyncing(true);
-      syncToSupabase().finally(() => setSyncing(false));
+      doSync();
     };
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
@@ -25,6 +57,24 @@ export default function Layout() {
     };
   }, []);
 
+  const doSync = useCallback(async () => {
+    if (syncing || !navigator.onLine) return;
+    setSyncing(true);
+    setSyncStatus(null);
+    try {
+      await pullFromSupabase();
+      await syncToSupabase();
+      setSyncStatus('ok');
+      setTimeout(() => setSyncStatus(null), 3000);
+    } catch (err) {
+      console.error('[Sync] Error:', err);
+      setSyncStatus('error');
+      setTimeout(() => setSyncStatus(null), 5000);
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncing]);
+
   const handleLogout = () => {
     if (confirm('Yakin ingin logout?')) {
       logout();
@@ -32,7 +82,6 @@ export default function Layout() {
     }
   };
 
-  // Desktop nav links
   const desktopLinks = [
     { to: '/kandang', label: 'Kandang' },
     { to: '/input', label: 'Input' },
@@ -44,7 +93,6 @@ export default function Layout() {
     ] : [])
   ];
 
-  // Mobile bottom nav — 4 menu utama yang paling sering dipakai
   const bottomNavLinks = [
     {
       to: '/kandang',
@@ -86,6 +134,20 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+
+      {/* Banner update tersedia */}
+      {updateAvailable && (
+        <div className="bg-blue-600 text-white px-4 py-2 flex items-center justify-between text-sm z-50">
+          <span>🆕 Versi baru tersedia</span>
+          <button
+            onClick={handleUpdate}
+            className="bg-white text-blue-600 px-3 py-1 rounded font-semibold text-xs hover:bg-blue-50"
+          >
+            Update Sekarang
+          </button>
+        </div>
+      )}
+
       {/* Top Nav */}
       <nav className="bg-green-600 text-white shadow-lg">
         <div className="container mx-auto px-4 py-3">
@@ -96,19 +158,33 @@ export default function Layout() {
               <h1 className="text-base md:text-xl font-bold leading-tight">🐔 Smart Farm</h1>
               {user && (
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <p className="text-xs text-green-100 truncate max-w-[130px] md:max-w-none">
+                  <p className="text-xs text-green-100 truncate max-w-[110px] md:max-w-none">
                     {user.nama} {user.role === 'admin' ? '👑' : '👤'}
                   </p>
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap ${
-                    syncing ? 'bg-yellow-400 text-yellow-900'
-                    : isOnline ? 'bg-green-300 text-green-900'
-                    : 'bg-red-400 text-red-900'
-                  }`}>
-                    {syncing ? '⟳' : isOnline ? '●' : '○'}
-                    <span className="hidden sm:inline ml-1">
-                      {syncing ? 'Syncing' : isOnline ? 'Online' : 'Offline'}
+                  {/* Status badge — klik untuk sync manual di mobile */}
+                  <button
+                    onClick={doSync}
+                    disabled={syncing || !isOnline}
+                    className={`text-xs px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap transition-all ${
+                      syncing        ? 'bg-yellow-400 text-yellow-900'
+                      : syncStatus === 'ok'    ? 'bg-green-200 text-green-900'
+                      : syncStatus === 'error' ? 'bg-red-300 text-red-900'
+                      : isOnline     ? 'bg-green-300 text-green-900'
+                      : 'bg-red-400 text-red-900'
+                    }`}
+                    title="Tap untuk sync manual"
+                  >
+                    <span className={syncing ? 'inline-block animate-spin' : ''}>
+                      {syncing ? '⟳' : syncStatus === 'ok' ? '✓' : syncStatus === 'error' ? '✗' : isOnline ? '●' : '○'}
                     </span>
-                  </span>
+                    <span className="ml-1">
+                      {syncing        ? 'Syncing...'
+                      : syncStatus === 'ok'    ? 'Tersync'
+                      : syncStatus === 'error' ? 'Gagal'
+                      : isOnline      ? 'Online'
+                      : 'Offline'}
+                    </span>
+                  </button>
                 </div>
               )}
             </div>
@@ -124,6 +200,16 @@ export default function Layout() {
                   {link.label}
                 </Link>
               ))}
+              {/* Tombol Sync Manual Desktop */}
+              <button
+                onClick={doSync}
+                disabled={syncing || !isOnline}
+                className="px-4 py-2 rounded text-sm bg-green-500 hover:bg-green-400 disabled:opacity-50 flex items-center gap-1"
+                title="Sync data dari server"
+              >
+                <span className={syncing ? 'inline-block animate-spin' : ''}>⟳</span>
+                <span className="hidden lg:inline">Sync</span>
+              </button>
               <button
                 onClick={handleLogout}
                 className="px-4 py-2 rounded text-sm bg-red-500 hover:bg-red-600"
@@ -132,7 +218,7 @@ export default function Layout() {
               </button>
             </div>
 
-            {/* Mobile: Logout button di top nav */}
+            {/* Mobile: Logout di top nav */}
             <button
               className="md:hidden px-3 py-1.5 rounded text-xs bg-red-500 hover:bg-red-600 font-medium"
               onClick={handleLogout}
@@ -143,7 +229,7 @@ export default function Layout() {
         </div>
       </nav>
 
-      {/* Content — padding bawah lebih besar untuk bottom nav */}
+      {/* Content */}
       <main className="container mx-auto px-4 py-6 pb-24 md:pb-8">
         <Outlet />
       </main>
@@ -158,9 +244,7 @@ export default function Layout() {
                 key={link.to}
                 to={link.to}
                 className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${
-                  active
-                    ? 'text-green-600 bg-green-50'
-                    : 'text-gray-400 hover:text-gray-600'
+                  active ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:text-gray-600'
                 }`}
               >
                 {link.icon}
@@ -170,6 +254,29 @@ export default function Layout() {
               </Link>
             );
           })}
+
+          {/* Tombol Sync Manual di bottom nav mobile */}
+          <button
+            onClick={doSync}
+            disabled={syncing || !isOnline}
+            className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${
+              syncStatus === 'ok'    ? 'text-green-600 bg-green-50'
+              : syncStatus === 'error' ? 'text-red-500'
+              : syncing              ? 'text-yellow-500'
+              : 'text-gray-400'
+            }`}
+          >
+            <svg
+              className={`w-6 h-6 ${syncing ? 'animate-spin' : ''}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span className="text-xs font-medium">
+              {syncing ? 'Sync...' : syncStatus === 'ok' ? 'Tersync' : syncStatus === 'error' ? 'Gagal' : 'Sync'}
+            </span>
+          </button>
         </div>
       </nav>
     </div>
