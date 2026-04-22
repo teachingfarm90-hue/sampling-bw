@@ -335,11 +335,28 @@ function DeleteButton({ item, onRefresh }) {
 
 function ReviewScreen({ sessionId, onBack }) {
   const [analysis, setAnalysis] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const isDemo = isDemoAccount();
 
   useEffect(() => {
     calculateAnalysis(sessionId).then(setAnalysis);
   }, [sessionId]);
+
+  const handleSimpan = async () => {
+    setSaving(true);
+    try {
+      if (navigator.onLine) {
+        const { syncToSupabase } = await import('../lib/sync');
+        await syncToSupabase();
+      }
+      setSaved(true);
+    } catch (err) {
+      alert('Gagal sync ke server: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (!analysis) return <div className="text-center py-8">Menghitung...</div>;
 
@@ -380,7 +397,8 @@ function ReviewScreen({ sessionId, onBack }) {
         <div className="flex gap-4">
           <button
             onClick={onBack}
-            className="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700"
+            disabled={saving}
+            className="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 disabled:opacity-50"
           >
             ← Kembali Edit
           </button>
@@ -392,12 +410,17 @@ function ReviewScreen({ sessionId, onBack }) {
             >
               🔒 Simpan (Demo)
             </button>
+          ) : saved ? (
+            <div className="flex-1 bg-green-50 border-2 border-green-500 text-green-700 py-3 rounded-lg font-semibold text-center">
+              ✅ Tersimpan
+            </div>
           ) : (
             <button
-              onClick={() => alert('Data tersimpan!')}
-              className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700"
+              onClick={handleSimpan}
+              disabled={saving}
+              className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:bg-green-400"
             >
-              Simpan ✓
+              {saving ? '⟳ Menyimpan...' : 'Simpan ✓'}
             </button>
           )}
         </div>

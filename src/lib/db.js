@@ -131,12 +131,24 @@ export async function getScopedSessions() {
   if (scope === null) {
     return await db.sessions.toArray();
   }
-  // Filter: session yang created_by admin dalam scope,
-  // atau session di kandang yang dimiliki admin dalam scope
+
+  // Dapatkan semua kandang dalam scope admin ini
   const scopedKandangs = await getAllKandangs();
   const scopedKodes = new Set(scopedKandangs.map(k => k.kode));
+
+  // Dapatkan semua username yang berada di bawah admin ini (termasuk operator-operatornya)
+  const allUsers = await db.users.toArray();
+  const scopedUsernames = new Set(
+    allUsers
+      .filter(u => u.username === scope || u.owner === scope)
+      .map(u => u.username)
+  );
+
+  // Session termasuk jika:
+  // 1. Dibuat oleh user dalam scope (admin atau operatornya)
+  // 2. Berada di kandang milik admin dalam scope
   return await db.sessions.filter(s =>
-    s.created_by === scope || scopedKodes.has(s.kandang)
+    scopedUsernames.has(s.created_by) || scopedKodes.has(s.kandang)
   ).toArray();
 }
 
