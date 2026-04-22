@@ -202,6 +202,7 @@ export async function pullFromSupabase() {
   try {
     await pullUsers();
     await pullKandangs();
+    await pullSessions();
     console.log('[Sync] Pull selesai');
   } catch (err) {
     console.error('[Sync] Pull error:', err);
@@ -279,6 +280,73 @@ async function pullKandangs() {
         updated_at: remote.updated_at,
         updated_by: remote.updated_by,
         synced: true
+      });
+    }
+  }
+}
+
+async function pullSessions() {
+  // Pull semua sessions dari Supabase beserta timbang-nya
+  const { data: remoteSessions, error } = await supabase
+    .from('sessions')
+    .select('id, local_id, kandang, umur_mg, created_at, created_by')
+    .order('created_at', { ascending: false });
+
+  if (error || !remoteSessions) {
+    console.warn('[Sync] pullSessions error:', error?.message);
+    return;
+  }
+
+  console.log('[Sync] Pull sessions dari remote:', remoteSessions.length);
+
+  for (const remote of remoteSessions) {
+    // Cek apakah session sudah ada di lokal berdasarkan remote_id
+    const existingByRemote = await db.sessions
+      .filter(s => s.remote_id === remote.id)
+      .first();
+
+    let localSessionId;
+
+    if (!existingByRemote) {
+      // Belum ada lokal — tambahkan
+      localSessionId = await db.sessions.add({
+        kandang: remote.kandang,
+        umur_mg: remote.umur_mg,
+        created_at: remote.created_at,
+        created_by: remote.created_by || null,
+        synced: true,
+        remote_id: remote.id
+      });
+      console.log('[Sync] Session pulled:', remote.id, '→ local', localSessionId);
+    } else {
+      localSessionId = existingByRemote.id;
+    }
+
+    // Pull timbang untuk session ini
+    await pullTimbangForSession(remote.id, localSessionId);
+  }
+}
+
+async function pullTimbangForSession(remoteSessionId, localSessionId) {
+  const { data: remoteTimbang, error } = await supabase
+    .from('timbang')
+    .select('id, local_id, id_ayam, berat, created_at')
+    .eq('session_id', remoteSessionId);
+
+  if (error || !remoteTimbang) return;
+
+  // Ambil semua timbang lokal untuk session ini
+  const localTimbang = await db.timbang.where('session_id').equals(localSessionId).toArray();
+  const localBeratSet = new Set(localTimbang.map(t => `${t.id_ayam}_${t.berat}`));
+
+  for (const rt of remoteTimbang) {
+    const key = `${rt.id_ayam}_${rt.berat}`;
+    if (!localBeratSet.has(key)) {
+      await db.timbang.add({
+        session_id: localSessionId,
+        id_ayam: rt.id_ayam,
+        berat: rt.berat,
+        created_at: rt.created_at
       });
     }
   }
