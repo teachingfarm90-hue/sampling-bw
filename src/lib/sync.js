@@ -75,19 +75,20 @@ async function pushSessions() {
   const all = await db.sessions.toArray();
   const unsynced = all.filter(s => !s.synced);
 
+  console.log('[Sync] Sessions unsynced:', unsynced.length, unsynced.map(s => ({ id: s.id, kandang: s.kandang, created_by: s.created_by })));
+
   for (const session of unsynced) {
     // Pastikan kandang sudah ada di Supabase dulu
-    const { data: kandangExists } = await supabase
-      .from('kandangs')
-      .select('kode')
-      .eq('kode', session.kandang)
-      .maybeSingle();
+    const { data: kandangExists, error: kandangCheckErr } = await supabase
+      .from('kandangs').select('kode').eq('kode', session.kandang).maybeSingle();
+
+    console.log('[Sync] Kandang check:', session.kandang, kandangExists ? '✓ ada' : '✗ tidak ada', kandangCheckErr?.message || '');
 
     if (!kandangExists) {
-      // Push kandang dulu sebelum session
       const localKandang = await db.kandangs.where('kode').equals(session.kandang).first();
+      console.log('[Sync] Local kandang:', localKandang ? localKandang.kode : '✗ tidak ditemukan di IndexedDB');
       if (localKandang) {
-        await supabase.from('kandangs').upsert({
+        const { error: kErr } = await supabase.from('kandangs').upsert({
           kode: localKandang.kode,
           nama: localKandang.nama,
           penanggung_jawab: localKandang.penanggung_jawab,
@@ -98,20 +99,22 @@ async function pushSessions() {
           updated_at: localKandang.updated_at || null,
           updated_by: localKandang.updated_by || null
         }, { onConflict: 'kode' });
+        if (kErr) { console.warn('[Sync] Push kandang error:', kErr.message); continue; }
         await db.kandangs.update(localKandang.id, { synced: true });
       } else {
-        console.warn('[Sync] Kandang tidak ditemukan lokal:', session.kandang);
+        console.warn('[Sync] SKIP: kandang tidak ditemukan lokal:', session.kandang);
         continue;
       }
     }
 
-    // Cek apakah sudah ada di remote — gunakan local_id + created_by agar unik antar device
-    const { data: existing } = await supabase
-      .from('sessions')
-      .select('id')
+    // Cek apakah session sudah ada di remote
+    const { data: existing, error: existErr } = await supabase
+      .from('sessions').select('id')
       .eq('local_id', session.id)
       .eq('created_by', session.created_by || '')
       .maybeSingle();
+
+    console.log('[Sync] Session existing:', { local_id: session.id, created_by: session.created_by }, existing?.id || 'belum ada', existErr?.message || '');
 
     let remoteId = existing?.id;
 
@@ -125,25 +128,27 @@ async function pushSessions() {
       }).select().single();
 
       if (error) {
-        console.warn('[Sync] pushSessions error:', error.message);
+        console.warn('[Sync] pushSessions INSERT error:', error.message, '|', error.details, '|', error.hint);
         continue;
       }
       remoteId = data.id;
+      console.log('[Sync] Session inserted OK, remoteId:', remoteId);
     }
 
     // Push timbang data
     const timbangData = await db.timbang.where('session_id').equals(session.id).toArray();
+    console.log('[Sync] Timbang count for session', session.id, ':', timbangData.length);
+
     if (timbangData.length > 0) {
       const { data: existingTimbang } = await supabase
-        .from('timbang')
-        .select('local_id')
-        .eq('session_id', remoteId);
+        .from('timbang').select('local_id').eq('session_id', remoteId);
 
       const existingLocalIds = new Set((existingTimbang || []).map(t => t.local_id));
       const newTimbang = timbangData.filter(t => !existingLocalIds.has(t.id));
+      console.log('[Sync] New timbang to insert:', newTimbang.length);
 
       if (newTimbang.length > 0) {
-        const { error: timbangError } = await supabase.from('timbang').insert(
+        const { error: tErr } = await supabase.from('timbang').insert(
           newTimbang.map(t => ({
             local_id: t.id,
             session_id: remoteId,
@@ -152,14 +157,16 @@ async function pushSessions() {
             created_at: t.created_at
           }))
         );
-        if (timbangError) {
-          console.warn('[Sync] pushTimbang error:', timbangError.message);
-          continue; // jangan mark session sebagai synced jika timbang gagal
+        if (tErr) {
+          console.warn('[Sync] pushTimbang INSERT error:', tErr.message, '|', tErr.details, '|', tErr.hint);
+          continue;
         }
+        console.log('[Sync] Timbang inserted OK');
       }
     }
 
     await db.sessions.update(session.id, { synced: true, remote_id: remoteId });
+    console.log('[Sync] Session marked synced:', session.id);
   }
 }
 
