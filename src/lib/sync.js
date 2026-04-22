@@ -200,6 +200,7 @@ export async function pullFromSupabase() {
   if (!navigator.onLine) return;
 
   try {
+    console.log('[Sync] Mulai pull...');
     await pullUsers();
     await pullKandangs();
     await pullSessions();
