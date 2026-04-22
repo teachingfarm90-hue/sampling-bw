@@ -105,11 +105,12 @@ async function pushSessions() {
       }
     }
 
-    // Cek apakah sudah ada di remote
+    // Cek apakah sudah ada di remote — gunakan local_id + created_by agar unik antar device
     const { data: existing } = await supabase
       .from('sessions')
       .select('id')
       .eq('local_id', session.id)
+      .eq('created_by', session.created_by || '')
       .maybeSingle();
 
     let remoteId = existing?.id;
@@ -142,7 +143,7 @@ async function pushSessions() {
       const newTimbang = timbangData.filter(t => !existingLocalIds.has(t.id));
 
       if (newTimbang.length > 0) {
-        await supabase.from('timbang').insert(
+        const { error: timbangError } = await supabase.from('timbang').insert(
           newTimbang.map(t => ({
             local_id: t.id,
             session_id: remoteId,
@@ -151,6 +152,10 @@ async function pushSessions() {
             created_at: t.created_at
           }))
         );
+        if (timbangError) {
+          console.warn('[Sync] pushTimbang error:', timbangError.message);
+          continue; // jangan mark session sebagai synced jika timbang gagal
+        }
       }
     }
 

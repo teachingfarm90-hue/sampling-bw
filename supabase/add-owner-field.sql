@@ -5,5 +5,5 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS owner VARCHAR(50) DEFAULT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_users_owner ON users(owner);
 
--- Update: user yang dibuat oleh superadmin tidak punya owner (NULL)
--- User yang dibuat oleh admin lain perlu di-set manual atau via aplikasi
+-- Migration: tambah composite index untuk sessions agar sync multi-device tidak bentrok
+CREATE INDEX IF NOT EXISTS idx_sessions_local_created ON sessions(local_id, created_by);

@@ -105,11 +105,12 @@ CREATE POLICY "Allow all for anon" ON audit_logs  FOR ALL TO anon USING (true) W
 -- INDEXES
 -- ============================================
 
-CREATE INDEX IF NOT EXISTS idx_sessions_kandang    ON sessions(kandang);
-CREATE INDEX IF NOT EXISTS idx_timbang_session_id  ON timbang(session_id);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_ts       ON audit_logs(timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_entity   ON audit_logs(entity_type, entity_id);
-CREATE INDEX IF NOT EXISTS idx_users_owner         ON users(owner);
+CREATE INDEX IF NOT EXISTS idx_sessions_kandang       ON sessions(kandang);
+CREATE INDEX IF NOT EXISTS idx_sessions_local_created  ON sessions(local_id, created_by);
+CREATE INDEX IF NOT EXISTS idx_timbang_session_id      ON timbang(session_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_ts           ON audit_logs(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_entity       ON audit_logs(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_users_owner             ON users(owner);
 
 -- ============================================
 -- MIGRATION (untuk database yang sudah ada)
